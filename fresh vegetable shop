@@ -1,0 +1,117 @@
+import React, { useState, useEffect } from 'react';
+import Navbar from './components/Navbar';
+import HomePage from './components/HomePage';
+import VegetablesPage from './components/VegetablesPage';
+import CartPage from './components/CartPage';
+import OrderPage from './components/OrderPage';
+import { CartItem, Vegetable, OrderDetails } from './types';
+
+function App() {
+  const [currentPage, setCurrentPage] = useState<string>('home');
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  // Load cart from localStorage on app start
+  useEffect(() => {
+    const savedCart = localStorage.getItem('freshbasket-cart');
+    if (savedCart) {
+      try {
+        setCartItems(JSON.parse(savedCart));
+      } catch (error) {
+        console.error('Error loading cart from localStorage:', error);
+      }
+    }
+  }, []);
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('freshbasket-cart', JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  const handleAddToCart = (vegetable: Vegetable) => {
+    setCartItems(prevItems => {
+      const existingItem = prevItems.find(item => item.id === vegetable.id);
+      if (existingItem) {
+        return prevItems.map(item =>
+          item.id === vegetable.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      } else {
+        return [...prevItems, { ...vegetable, quantity: 1 }];
+      }
+    });
+  };
+
+  const handleUpdateQuantity = (id: number, quantity: number) => {
+    if (quantity === 0) {
+      setCartItems(prevItems => prevItems.filter(item => item.id !== id));
+    } else {
+      setCartItems(prevItems =>
+        prevItems.map(item =>
+          item.id === id ? { ...item, quantity } : item
+        )
+      );
+    }
+  };
+
+  const handleRemoveItem = (id: number) => {
+    setCartItems(prevItems => prevItems.filter(item => item.id !== id));
+  };
+
+  const handlePlaceOrder = (orderDetails: OrderDetails) => {
+    // In a real app, this would send the order to a backend
+    console.log('Order placed:', {
+      orderDetails,
+      cartItems,
+      total: cartItems.reduce((total, item) => total + (item.price * item.quantity), 0)
+    });
+    
+    // Clear cart after successful order
+    setTimeout(() => {
+      setCartItems([]);
+      setCurrentPage('home');
+    }, 3000);
+  };
+
+  const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+
+  const renderCurrentPage = () => {
+    switch (currentPage) {
+      case 'home':
+        return <HomePage onNavigateToVegetables={() => setCurrentPage('vegetables')} />;
+      case 'vegetables':
+        return <VegetablesPage onAddToCart={handleAddToCart} />;
+      case 'cart':
+        return (
+          <CartPage
+            cartItems={cartItems}
+            onUpdateQuantity={handleUpdateQuantity}
+            onRemoveItem={handleRemoveItem}
+            onNavigateToOrder={() => setCurrentPage('order')}
+          />
+        );
+      case 'order':
+        return (
+          <OrderPage
+            cartItems={cartItems}
+            onPlaceOrder={handlePlaceOrder}
+          />
+        );
+      default:
+        return <HomePage onNavigateToVegetables={() => setCurrentPage('vegetables')} />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        cartItemCount={cartItemCount}
+      />
+      {renderCurrentPage()}
+    </div>
+  );
+}
+
+export default App;
